@@ -48,7 +48,14 @@ func GeneralWebhookHandler(w http.ResponseWriter, r *http.Request, processing ch
 	}
 
 	// send the payload for processing
-	processing <- payload
+	select {
+	case processing <- payload:
+		sendJSONResponse(w, http.StatusOK, "success", "Webhook received and queued successfully")
+
+	default:
+		// The channel is completely full!
+		sendJSONResponse(w, http.StatusTooManyRequests, "error", "Server is at capacity. Please retry later.")
+	}
 
 	// send a success response immediately
 	sendJSONResponse(w, http.StatusOK, "success", "Webhook received and queued")
