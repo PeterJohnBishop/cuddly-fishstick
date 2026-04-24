@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"cuddly-fishstick/webhooks"
+	"cuddly-fishstick/websockets"
 	"fmt"
 	"log"
 	"net/http"
@@ -41,7 +42,11 @@ func main() {
 	})
 
 	http.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {
-		webhooks.GeneralWebhookHandler(w, r, processing)
+		webhooks.WebhookHandler(w, r, processing)
+	})
+
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		websockets.WebsocketHandler(w, r, processing)
 	})
 
 	srv := &http.Server{
