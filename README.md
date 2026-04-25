@@ -1,6 +1,6 @@
 # cuddly-fishstick
 
-An asynchonous, non-blocking webhook reciever. 
+An asynchronous, non-blocking webhook reciever.
 - When a POST request is sent to the endpoint, the handler confirms the request method and content size.
 - Parses the JSON into a generic map and pushes the payload into the processing channel.
     + processing channel is buffered for 120 payloads
@@ -8,3 +8,5 @@ An asynchonous, non-blocking webhook reciever.
 - Background processing occurs in a separate Goroutine
 - Shutdown provides 5sec buffer to HTTP handlers, waits for processing channel to empty before shutdown.
 
+An asynchronous, non-blocking websocket. 
+- Events recieved by the websocket conn are sent directly into the processing channel

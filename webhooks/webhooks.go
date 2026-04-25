@@ -6,18 +6,16 @@ import (
 	"net/http"
 )
 
-type EventWrapper struct {
-	Event string          `json:"event"`
-	Data  json.RawMessage `json:"data"`
+type Event struct {
+	Data json.RawMessage `json:"data"`
 }
 
-func sendJSONResponse(w http.ResponseWriter, statusCode int, status, message string) {
+func sendJSONResponse(w http.ResponseWriter, statusCode int, status, data string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
 	response := map[string]string{
-		"event": status,
-		"data":  message,
+		"data": data,
 	}
 	json.NewEncoder(w).Encode(response)
 }
@@ -36,8 +34,8 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- ma
 
 	defer r.Body.Close()
 
-	var wrapper EventWrapper
-	err := json.NewDecoder(r.Body).Decode(&wrapper)
+	var event Event
+	err := json.NewDecoder(r.Body).Decode(&event)
 	if err != nil {
 		var maxBytesError *http.MaxBytesError
 		if errors.As(err, &maxBytesError) {
@@ -50,14 +48,13 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- ma
 	}
 
 	// validate that the event field isn't empty
-	if wrapper.Event == "" {
+	if string(event.Data) == "" {
 		sendJSONResponse(w, http.StatusBadRequest, "error", "Missing required 'event' field")
 		return
 	}
 
 	payload := map[string]any{
-		"event": wrapper.Event,
-		"data":  wrapper.Data,
+		"event": event.Data,
 	}
 
 	// Send the payload for processing

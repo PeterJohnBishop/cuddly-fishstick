@@ -9,9 +9,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type EventWrapper struct {
-	Event string          `json:"event"`
-	Data  json.RawMessage `json:"data"`
+type Event struct {
+	Data json.RawMessage `json:"data"`
 }
 
 var upgrader = websocket.Upgrader{
@@ -39,21 +38,20 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request, processing chan<- 
 			break
 		}
 
-		var wrapper EventWrapper
-		if err := json.Unmarshal(message, &wrapper); err != nil {
+		var event Event
+		if err := json.Unmarshal(message, &event); err != nil {
 			log.Println("Invalid JSON received:", err)
 			conn.WriteMessage(messageType, []byte("Error: Invalid JSON format\n"))
 			continue
 		}
 
 		payload := map[string]any{
-			"event": wrapper.Event,
-			"data":  wrapper.Data,
+			"data": event.Data,
 		}
 
 		processing <- payload
 
-		msg := fmt.Sprintf("%s event acknowledged.\n", wrapper.Event)
+		msg := fmt.Sprintf("Event acknowledged: %s\n", event.Data)
 
 		err = conn.WriteMessage(messageType, []byte(msg))
 		if err != nil {
