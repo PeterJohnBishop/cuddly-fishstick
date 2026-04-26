@@ -3,12 +3,9 @@ package webhooks
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 )
-
-type Event struct {
-	Data json.RawMessage `json:"data"`
-}
 
 func sendJSONResponse(w http.ResponseWriter, statusCode int, status, data string) {
 	w.Header().Set("Content-Type", "application/json")
@@ -20,22 +17,19 @@ func sendJSONResponse(w http.ResponseWriter, statusCode int, status, data string
 	json.NewEncoder(w).Encode(response)
 }
 
-func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- map[string]any) {
+func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- []byte) {
 
-	// Accept only POST requests
 	if r.Method != http.MethodPost {
 		sendJSONResponse(w, http.StatusMethodNotAllowed, "error", "Method Not Allowed")
 		return
 	}
 
-	// Limit to 1MB
 	const maxPayloadSize = 1024 * 1024
 	r.Body = http.MaxBytesReader(w, r.Body, maxPayloadSize)
 
 	defer r.Body.Close()
 
-	var event Event
-	err := json.NewDecoder(r.Body).Decode(&event)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		var maxBytesError *http.MaxBytesError
 		if errors.As(err, &maxBytesError) {
@@ -43,29 +37,20 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- ma
 			return
 		}
 
-		sendJSONResponse(w, http.StatusBadRequest, "error", "Invalid JSON payload structure")
+		sendJSONResponse(w, http.StatusBadRequest, "error", "Failed to read request body")
 		return
 	}
 
-	// validate that the event field isn't empty
-	if string(event.Data) == "" {
-		sendJSONResponse(w, http.StatusBadRequest, "error", "Missing required 'event' field")
+	if len(body) == 0 {
+		sendJSONResponse(w, http.StatusBadRequest, "error", "Missing required payload")
 		return
 	}
 
-	payload := map[string]any{
-		"event": event.Data,
-	}
-
-	// Send the payload for processing
 	select {
-	case processing <- payload:
-		// Send a success response immediately
+	case processing <- body:
 		sendJSONResponse(w, http.StatusOK, "success", "Webhook received and queued successfully")
 
 	default:
-		// The channel is completely full!
-		// Sending 429 error to let the sender know they can retry later.
 		sendJSONResponse(w, http.StatusTooManyRequests, "error", "Server is at capacity. Please retry later.")
 	}
 }
