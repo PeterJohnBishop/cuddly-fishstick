@@ -4,7 +4,6 @@ import (
 	"context"
 	"cuddly-fishstick/webhooks"
 	"cuddly-fishstick/websockets"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -27,7 +26,7 @@ func main() {
 	port := os.Getenv("PORT")
 
 	queueSize := 100
-	processing := make(chan []byte, queueSize)
+	processing := make(chan map[string]any, queueSize)
 
 	var wg sync.WaitGroup
 
@@ -36,23 +35,8 @@ func main() {
 		log.Println("Worker started, waiting for data...")
 
 		for payload := range processing {
-			var data map[string]interface{}
-			err := json.Unmarshal(payload, &data)
-			if err != nil {
-				log.Println("Failed to unmarshal payload")
-				continue
-			}
-
-			if eventVal, exists := data["event"]; exists {
-				if eventString, ok := eventVal.(string); ok {
-					// switch on event strings, to send data to the correct channel
-					fmt.Printf("[PROCESSED EVENT] %s\n", eventString)
-				} else {
-					log.Println("Property 'event' found, but it is not a string")
-				}
-			} else {
-				log.Println("Property 'event' is missing from the payload")
-			}
+			event := payload["event"]
+			log.Printf("Processing event: %s", event)
 			// time.Sleep(1 * time.Second) // Uncomment to test the graceful shutdown
 		}
 		log.Println("Queue drained. Worker shutting down.")

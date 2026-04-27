@@ -9,3 +9,5 @@ services:
     environment:
       PORT: ${PORT}
       BASE_URL: ${BASE_URL}
+      BUILD: ${BUILD}
+      RESEND: ${RESEND}

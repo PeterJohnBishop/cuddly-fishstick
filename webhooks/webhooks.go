@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -17,7 +18,18 @@ func sendJSONResponse(w http.ResponseWriter, statusCode int, status, data string
 	json.NewEncoder(w).Encode(response)
 }
 
-func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- []byte) {
+func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- map[string]any) {
+
+	// checks if 'eventt' is either query param or in the body itself
+
+	// Expects:
+	// {
+	// 	"event": string,
+	// 	"data":  string,
+	// }
+
+	queryParams := r.URL.Query()
+	eventParam := queryParams.Get("event")
 
 	if r.Method != http.MethodPost {
 		sendJSONResponse(w, http.StatusMethodNotAllowed, "error", "Method Not Allowed")
@@ -46,11 +58,45 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- []
 		return
 	}
 
-	select {
-	case processing <- body:
-		sendJSONResponse(w, http.StatusOK, "success", "Webhook received and queued successfully")
+	if eventParam == "" {
+		var data map[string]interface{}
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			sendJSONResponse(w, http.StatusBadRequest, "error", "Unable to unmarshal the payload")
+		}
 
-	default:
-		sendJSONResponse(w, http.StatusTooManyRequests, "error", "Server is at capacity. Please retry later.")
+		if eventVal, exists := data["event"]; exists {
+			if eventString, ok := eventVal.(string); ok {
+				validEvent := map[string]any{
+					"event": eventString,
+					"data":  data["data"],
+				}
+				select {
+				case processing <- validEvent:
+					sendJSONResponse(w, http.StatusOK, "success", "Webhook received and queued successfully")
+
+				default:
+					sendJSONResponse(w, http.StatusTooManyRequests, "error", "Server is at capacity. Please retry later.")
+				}
+			} else {
+				log.Println("Property 'event' found, but it is not a string")
+			}
+		} else {
+			log.Println("Property 'event' is missing from the payload")
+		}
+	} else {
+		validEvent := map[string]any{
+			"event": eventParam,
+			"data":  body,
+		}
+
+		select {
+		case processing <- validEvent:
+			sendJSONResponse(w, http.StatusOK, "success", "Webhook received and queued successfully")
+
+		default:
+			sendJSONResponse(w, http.StatusTooManyRequests, "error", "Server is at capacity. Please retry later.")
+		}
 	}
+
 }

@@ -1,6 +1,7 @@
 package websockets
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,7 +17,14 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func WebsocketHandler(w http.ResponseWriter, r *http.Request, processing chan<- []byte) {
+func WebsocketHandler(w http.ResponseWriter, r *http.Request, processing chan<- map[string]any) {
+
+	// Expects:
+	// {
+	// 	"event": string,
+	// 	"data":  string,
+	// }
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade error:", err)
@@ -33,9 +41,27 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request, processing chan<- 
 			break
 		}
 
-		processing <- message
+		var data map[string]interface{}
+		err = json.Unmarshal(message, &data)
+		if err != nil {
+			log.Println("Failed to unmarshal message")
+		}
 
-		msg := fmt.Sprintf("Event sent for processing.")
+		if eventVal, exists := data["event"]; exists {
+			if eventString, ok := eventVal.(string); ok {
+				validEvent := map[string]any{
+					"event": eventString,
+					"data":  data["data"],
+				}
+				processing <- validEvent
+			} else {
+				log.Println("Property 'event' found, but it is not a string")
+			}
+		} else {
+			log.Println("Property 'event' is missing from the payload")
+		}
+
+		msg := "Event sent for processing."
 
 		err = conn.WriteMessage(messageType, []byte(msg))
 		if err != nil {
