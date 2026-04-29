@@ -20,13 +20,15 @@ func sendJSONResponse(w http.ResponseWriter, statusCode int, status, data string
 
 func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- map[string]any) {
 
-	// checks if 'eventt' is either query param or in the body itself
+	// checks if 'event' is either query param or in the body itself
 
 	// Expects:
 	// {
 	// 	"event": string,
 	// 	"data":  string,
 	// }
+
+	// if no event, "event": "unknown"
 
 	queryParams := r.URL.Query()
 	eventParam := queryParams.Get("event")
@@ -83,6 +85,16 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request, processing chan<- ma
 			}
 		} else {
 			log.Println("Property 'event' is missing from the payload")
+			unknownEvent := map[string]any{
+				"event": "unknown",
+				"data":  data,
+			}
+			select {
+			case processing <- unknownEvent:
+				sendJSONResponse(w, http.StatusOK, "success", "Webhook received and queued successfully")
+			default:
+				sendJSONResponse(w, http.StatusTooManyRequests, "error", "Server is at capacity. Please retry later.")
+			}
 		}
 	} else {
 		validEvent := map[string]any{

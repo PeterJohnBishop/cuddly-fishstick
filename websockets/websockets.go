@@ -47,23 +47,44 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request, processing chan<- 
 			log.Println("Failed to unmarshal message")
 		}
 
+		var msgToClient string
+
 		if eventVal, exists := data["event"]; exists {
 			if eventString, ok := eventVal.(string); ok {
 				validEvent := map[string]any{
 					"event": eventString,
 					"data":  data["data"],
 				}
-				processing <- validEvent
+
+				select {
+				case processing <- validEvent:
+					msgToClient = `{"status": "success", "message": "Event sent for processing."}`
+				default:
+					log.Println("Server at capacity: dropped valid WS event")
+					msgToClient = `{"status": "error", "message": "Server is at capacity. Please retry later."}`
+				}
+
 			} else {
 				log.Println("Property 'event' found, but it is not a string")
+				msgToClient = `{"status": "error", "message": "Invalid event format."}`
 			}
 		} else {
 			log.Println("Property 'event' is missing from the payload")
+			unknownEvent := map[string]any{
+				"event": "unknown",
+				"data":  data,
+			}
+
+			select {
+			case processing <- unknownEvent:
+				msgToClient = `{"status": "success", "message": "Event sent for processing."}`
+			default:
+				log.Println("Server at capacity: dropped unknown WS event")
+				msgToClient = `{"status": "error", "message": "Server is at capacity. Please retry later."}`
+			}
 		}
 
-		msg := "Event sent for processing."
-
-		err = conn.WriteMessage(messageType, []byte(msg))
+		err = conn.WriteMessage(messageType, []byte(msgToClient))
 		if err != nil {
 			log.Println("Write error:", err)
 			break

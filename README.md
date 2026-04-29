@@ -8,5 +8,6 @@ An asynchronous, non-blocking webhook reciever.
 - Background processing occurs in a separate Goroutine
 - Shutdown provides 5sec buffer to HTTP handlers, waits for processing channel to empty before shutdown.
 
-An asynchronous, non-blocking websocket. 
+An asynchronous, non-blocking websocket reciever. 
 - Events recieved by the websocket conn are sent directly into the processing channel
+

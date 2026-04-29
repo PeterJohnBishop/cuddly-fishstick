@@ -1,4 +1,4 @@
-package mailer
+package emailapi
 
 import (
 	"log"
@@ -17,13 +17,13 @@ func InitMailer() *resend.Client {
 	return client
 }
 
-func SendMail(client *resend.Client, to string, subject string, htmlContent string) {
+func SendMail(client *resend.Client, to []string, from string, subject string, htmlContent string) {
 
 	params := &resend.SendEmailRequest{
-		From:    "notifications@gin-svc.com",
-		To:      []string{"peterjbishop.denver@gmail.com"},
-		Subject: "Hello World",
-		Html:    "<p>Congrats on sending your <strong>first email</strong>!</p>",
+		From:    from,        //"notifications@gin-svc.com",
+		To:      to,          //[]string{"peterjbishop.denver@gmail.com"},
+		Subject: subject,     //"Hello World",
+		Html:    htmlContent, //"<p>Congrats on sending your <strong>first email</strong>!</p>",
 	}
 
 	sent, err := client.Emails.Send(params)
